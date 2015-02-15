@@ -1,15 +1,22 @@
 import ConfigParser
 import endpoints
 import os
+import logging
 
+from google.appengine.ext import ndb
 from protorpc import remote
+from protorpc import message_types
 
 from models.mobile_messages import RegistrationRequest, NoteMessage, BaseResponse, NoteResponse, NoteListResponse
+from consts.client_type import ClientType
+from helpers.push_helper import PushHelper
+from models.mobile_client import MobileClient
 
 config = ConfigParser.ConfigParser()
 config.readfp(open('config.ini'))
 
 client_id_sitevar = config.get('endpoints', 'webId')
+logging.info("WebID: {}".format(client_id_sitevar))
 if client_id_sitevar is None:
     raise Exception("Sitevar appengine.webClientId is undefined. Can't process incoming requests")
 WEB_CLIENT_ID = str(client_id_sitevar)
@@ -42,7 +49,7 @@ class MobileAPI(remote.Service):
     def register_client(self, request):
         current_user = endpoints.get_current_user()
         if current_user is None:
-            return BaseResponse(code=401, message="Unauthorized to register")
+            return BaseResponse(code=401, data="Unauthorized to register")
         userId = PushHelper.user_email_to_id(current_user.email())
         gcmId = request.mobile_id
         os = ClientType.enums[request.operating_system]
@@ -58,19 +65,18 @@ class MobileAPI(remote.Service):
         if query.count() == 0:
             # Record doesn't exist yet, so add it
             MobileClient(
-                parent=ndb.Key(Account, userId),
                 user_id=userId,
                 messaging_id=gcmId,
                 client_type=os,
                 device_uuid=uuid,
                 display_name=name).put()
-            return BaseResponse(code=200, message="Registration successful")
+            return BaseResponse(code=200, data="Registration successful")
         else:
             # Record already exists, update it
             client = query.fetch(1)[0]
             client.messaging_id = gcmId
             client.display_name = name
             client.put()
-            return BaseResponse(code=304, message="Client already exists")
+            return BaseResponse(code=304, data="Client already exists")
 
 application = endpoints.api_server([MobileAPI])
