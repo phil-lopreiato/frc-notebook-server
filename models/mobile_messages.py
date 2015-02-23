@@ -31,16 +31,16 @@ class NoteListResponse(messages.Message):
     note = messages.MessageField(NoteMessage, 2, repeated=True)
 
 
-class CollaberatorAdd(messsages.Message):
+class CollaboratorAdd(messages.Message):
     eventKey = messages.StringField(1, required=True)
     email = messages.StringField(2, required=True)
 
 
-class CollaberatorRemove(messages.Message):
+class CollaboratorRemove(messages.Message):
     eventKey = messages.StringField(1, required=True)
     email = messages.StringField(2, required=True)
 
 
-class ListCollaberators(messages.Message):
+class ListCollaborators(messages.Message):
     response = messages.MessageField(BaseResponse, 1)
     collaberators = messages.StringField(2, repeated=True)

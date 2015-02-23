@@ -7,10 +7,11 @@ from google.appengine.ext import ndb
 from protorpc import remote
 from protorpc import message_types
 
-from models.mobile_messages import RegistrationRequest, NoteMessage, BaseResponse, NoteResponse, NoteListResponse
+from models.mobile_messages import RegistrationRequest, NoteMessage, BaseResponse, NoteResponse, NoteListResponse, CollaboratorAdd, CollaboratorRemove
 from consts.client_type import ClientType
 from helpers.push_helper import PushHelper
 from models.mobile_client import MobileClient
+from models.collaborator import Collaborator
 
 config = ConfigParser.ConfigParser()
 config.readfp(open('config.ini'))
@@ -34,7 +35,7 @@ client_ids = [WEB_CLIENT_ID, ANDROID_CLIENT_ID]
 '''
 Only allow API Explorer access on dev versions
 '''
-client_ids.append(endpoints.API_EXPLORER_CLIENT_ID)
+# client_ids.append(endpoints.API_EXPLORER_CLIENT_ID)
 
 
 @endpoints.api(name='frcNotebookMobile', version='v1', description="API for FRC Notebook",
@@ -78,5 +79,38 @@ class MobileAPI(remote.Service):
             client.display_name = name
             client.put()
             return BaseResponse(code=304, data="Client already exists")
+
+    @endpoints.method(CollaboratorAdd, BaseResponse,
+                      path='/collaborator/add', http_method='POST',
+                      name='collaboratorAdd')
+    def collaborator_add(self, request):
+        current_user = endpoints.get_current_user()
+        if current_user is None:
+            return BaseResponse(code=401, data="Unauthorized to add collaborators")
+        if current_user.email() == request.email:
+            return BaseResponse(code=500, data="Can't collaborate with yourself")
+        user_id = PushHelper.user_email_to_id(current_user.email())
+        new_user_id = PushHelper.user_email_to_id(request.email)
+
+        # See if this combination has been added before
+        result = Collaborator.query((Collaborator.srcUserId == user_id and Collaborator.dstUserId == new_user_id and Collaborator.eventKey == request.eventKey) or (Collaborator.srcUserId == new_user_id and Collaborator.dstUserId == user_id and Collaborator.eventKey == request.eventKey)).fetch(limit=1)
+
+        if result is not None and len(result) > 0:
+            existing = result[0]
+            if existing.mutual:
+                # This relationship already exists
+                return BaseResponse(code=304, data="This collaboration already exists")
+            elif existing.dstUserId == user_id and existing.srcUserId == new_user_id:
+                # If this has been added the other way, mark as mutual
+                existing.mutual = True
+                existing.put()
+                return BaseResponse(code=200, data="Collaboration added")
+            else:
+                # Collaboration remains one-sized...
+                return BaseResponse(code=200, data="Collaboration added")
+        else:
+            # Add a new collaboration
+            Collaborator(srcUserId=user_id, dstUserId=new_user_id, mutual=False, eventKey=request.eventKey).put()
+            return BaseResponse(code=200, data="Collaboration added")
 
 application = endpoints.api_server([MobileAPI])
