@@ -9,14 +9,9 @@ class RegistrationRequest(messages.Message):
 
 
 class NoteMessage(messages.Message):
-    owner = messages.StringField(1, required=True)
-    can_read = messages.StringField(2, repeated=True)
-    can_write = messages.StringField(3, repeated=True)
-    backend_id = messages.IntegerField(4, required=True)
-    content = messages.StringField(5)
-    event_key = messages.StringField(6)
-    match_key = messages.StringField(7)
-    team_key = messages.StringField(8)
+    noteUID = messages.StringField(1, required=True)
+    refKeys = messages.StringField(2, required=True)
+    content = messages.StringField(3, default="")
     last_update = messages.IntegerField(9)
     last_update_user = messages.StringField(10)
 
@@ -34,3 +29,18 @@ class NoteResponse(messages.Message):
 class NoteListResponse(messages.Message):
     response = messages.MessageField(BaseResponse, 1)
     note = messages.MessageField(NoteMessage, 2, repeated=True)
+
+
+class CollaberatorAdd(messsages.Message):
+    eventKey = messages.StringField(1, required=True)
+    email = messages.StringField(2, required=True)
+
+
+class CollaberatorRemove(messages.Message):
+    eventKey = messages.StringField(1, required=True)
+    email = messages.StringField(2, required=True)
+
+
+class ListCollaberators(messages.Message):
+    response = messages.MessageField(BaseResponse, 1)
+    collaberators = messages.StringField(2, repeated=True)
